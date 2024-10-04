@@ -1,0 +1,1 @@
+This folder stores the results of the movenet model for pose estimation
