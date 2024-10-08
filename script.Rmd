@@ -1,0 +1,387 @@
+---
+title: "MZES SSDL: Computationally Analyzing Politicians' Body Language Using Pose Estimation"
+author: 
+  - Oliver Rittmann
+date: "October 16, 2024"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    css: css/lab.css
+  pdf_document:
+    toc: yes
+  html_notebook:
+    toc: true
+    toc_float: true
+    css: css/lab.css
+header-includes:
+   - \usepackage[default]{sourcesanspro}
+   - \usepackage[T1]{fontenc}
+mainfont: SourceSansPro
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(dplyr)
+library(stringr)
+library(jsonlite)
+library(viridis)
+library(scales)
+```
+
+
+# Load movenet prediction output (pose estimation) into R
+
+The pose estimation data comes in .json format. We have two files, one for each video.
+
+```{r}
+files <- list.files(here("movenet_results"))
+
+json_files <- files[str_detect(files, ".json")]
+
+json_files
+```
+
+Let's have a look at how the data looks like
+
+```{r}
+speech1_raw <- jsonlite::fromJSON(paste0("movenet_results/", json_files[1]))
+speech2_raw <- jsonlite::fromJSON(paste0("movenet_results/", json_files[2]))
+
+#head(speech1_raw)
+dim(speech1_raw)
+```
+
+Dimensions 274 x 1 x 1 x 17 x 3 -- Any ideas what these dimensions are about?
+
+```{r}
+# the first frame
+speech1_raw[1,,,,]
+
+# the second frame
+speech1_raw[2,,,,]
+```
+
+The first two columns of the last dimension represents the y- and x- coordinates (normalized to image frame, i.e. range in [0.0, 1.0]) of the 17 keypoints:
+
+  - 1 nose
+  - 2 left eye
+  - 3 right eye
+  - 4 left ear
+  - 5 right ear
+  - 6 left shoulder
+  - 7 right shoulder
+  - 8 left elbow
+  - 9 right elbow
+  - 10 left wrist
+  - 11 right wrist
+  - 12 left hip
+  - 13 right hip
+  - 14 left knee
+  - 15 right knee
+  - 16 left ankle
+  - 17 right ankle
+
+The third column tells us how confident the model was in its detection, with confidence scores ranging between 0 and 1.
+
+# Organize pose estimation data
+
+Let's bring this data into a format that makes it easier to work with.
+
+```{r}
+array_to_timeseries <- function(data_list, 
+                                file_name,
+                                video_length){
+  ts_dat <- 
+    data.frame(file_name = rep(file_name, dim(data_list)[1]),
+               frame = 1:dim(data_list)[1],
+               timestamp = NA,
+               matrix(NA, ncol = 17, nrow = dim(data_list)[1]),
+               matrix(NA, ncol = 17, nrow = dim(data_list)[1]),
+               matrix(NA, ncol = 17, nrow = dim(data_list)[1]))
+  
+  keypoints_x_cols <- 4:20
+  keypoints_y_cols <- 21:37
+  keypoints_confidence_cols <- 38:54
+  names(ts_dat)[keypoints_x_cols] <- paste0("kp", 1:17, "_x")
+  names(ts_dat)[keypoints_y_cols] <- paste0("kp", 1:17, "_y")
+  names(ts_dat)[keypoints_confidence_cols] <- paste0("kp", 1:17, "_conf")
+  
+  # calculate timestamps
+  framerate <- dim(data_list)[1] / video_length
+  ts_dat$timestamp <- ts_dat$frame /framerate
+  
+  for (i in 1:dim(data_list)[1]) {
+    # x-values
+    ts_dat[i,keypoints_x_cols] <- data_list[i,,,,2]
+    # y-values
+    ts_dat[i,keypoints_y_cols] <- data_list[i,,,,1]
+    # confidence values
+    ts_dat[i,keypoints_confidence_cols] <- data_list[i,,,,3]
+  }
+  
+  return(ts_dat)
+}
+```
+
+```{r}
+# apply to both videos
+
+speech1_keypoints <- 
+  array_to_timeseries(data_list = speech1_raw,
+                      file_name = json_files[1],
+                      video_length = 1/25 * dim(speech1_raw)[1]) # framerate = 25fps
+
+speech2_keypoints <- 
+  array_to_timeseries(data_list = speech2_raw,
+                      file_name = json_files[2],
+                      video_length = 1/25 * dim(speech2_raw)[1])
+
+
+```
+
+What do we have now?
+
+```{r}
+head(speech1_keypoints)
+```
+
+Metadata: 
+
+  - `file_name` = name of the .json file (our data source)
+  - `frame` = frame identifier, increasing number in the order of their appearance
+  - `timestamp` = timestamp of the frame within the video sequence
+
+Key point data:
+
+  - `kp1_x` = x-coordinate of key point 1 (nose)
+  - `kp2_x` = x-coordinate of key point 2 (left eye)
+  - `kp3_x` = x-coordinate of key point 3 (right eye)
+  - ...
+  - `kp17_x` = x-coordinate of key point 17 (right ankle)
+  - `kp1_y` = y-coordinate of key point 1 (nose)
+  - `kp2_y` = y-coordinate of key point 2 (left eye)
+  - `kp3_y` = y-coordinate of key point 3 (right eye) 
+  - ...
+  - `kp17_conf` = y-coordinate of key point 17 (right ankle)
+  - `kp1_conf` = confidence for key point 1 (nos)
+  - `kp2_conf` = confidence for key point 2 (left eye)
+  - `kp3_conf` = confidence for key point 3 (right eye)
+  - ...
+  - `kp17_conf` = confidence for key point 17 (right ankle)
+
+# Visualize key point data
+
+Let's start by plotting the data without any editing. We want to see what the raw data looks like.
+
+```{r}
+
+# We want to plot one frame, so let's get the data for one frame
+keypoints <- speech2_keypoints[speech2_keypoints$frame == 1,]
+
+# we want to subset to the upper body
+upper_body_pattern <- paste0("kp", 1:13, "_", collapse = "|")
+keypoints <- keypoints[str_detect(names(keypoints), upper_body_pattern)]
+
+kp_x <- t(keypoints[, str_detect(names(keypoints), "_x")])
+kp_y <- t(keypoints[, str_detect(names(keypoints), "_y")])
+
+kp_frame <- data.frame(cbind(kp_x, kp_y))
+colnames(kp_frame) <- c("x", "y")
+```
+
+```{r}
+plot(x = kp_frame$x,
+     y = kp_frame$y)
+```
+```{r}
+plot(x = kp_frame$x,
+     y = kp_frame$y,
+     xlim = c(0, 1),
+     ylim = c(0, 1),
+     asp = 1)
+```
+
+```{r}
+edges <- list(c(1, 2),    # nose - left eye
+              c(1, 3),    # nose - right eye
+              c(2, 4),    # left eye - left ear
+              c(3, 5),    # right eye - right ear
+              c(1, 6),    # nose - left shoulder
+              c(1, 7),    # nose - right shoulder
+              c(6, 8),    # left shoulder - left elbow
+              c(8, 10),   # left elbow - left wrist
+              c(7, 9),    # right shoulder - right elbow
+              c(9, 11),   # right elbow - right wrist
+              c(6, 7),    # left shoulder - right shoulder
+              c(6, 12),   # left shoulder - left hip
+              c(7, 13),   # right shoulder - right hip
+              c(12, 13),  # left hip - right hip
+              c(12, 14),  # left hip - left knee
+              c(14, 16),  # left knee - left ankle
+              c(13, 15),  # right hip - right knee
+              c(15, 17))  # right knee - right ankle
+
+
+
+
+plot(x = kp_frame$x,
+     y = kp_frame$y,
+     xlim = c(0, 1),
+     ylim = c(0, 1),
+     asp = 1)
+
+
+for (e in 1:length(edges)) {
+  p1 <- kp_frame[edges[[e]][1], c("x", "y")]
+  p2 <- kp_frame[edges[[e]][2], c("x", "y")]
+  
+  if (all(!is.na(p1)) & all(!is.na(p2))) {
+    segments(
+      x0 = as.numeric(p1$x),
+      y0 = as.numeric(p1$y),
+      x1 = as.numeric(p2$x),
+      y1 = as.numeric(p2$y),
+      lwd = 2,
+      col = viridis(2)[1]
+    )
+  }
+}
+
+points(x = kp_frame$x,
+       y = kp_frame$y,
+       pch = 19,
+       cex = 1.5,
+       col = viridis(2)[2])
+```
+
+```{r}
+kp_frame$y_rev <- -kp_frame$y
+
+plot(x = kp_frame$x,
+     y = kp_frame$y,
+     asp = 1,
+     xlim = c(0, 1),
+     ylim = c(1, 0),
+     axes = T)
+  
+polygon(x = c(0, 1, 1, 0),
+        y = c(720/1296+0.25, 720/1296+0.25, 0.25, 0.25),
+        col = alpha("grey75", 1),
+        border = "grey75")
+
+
+for (e in 1:length(edges)) {
+  p1 <- kp_frame[edges[[e]][1], c("x", "y")]
+  p2 <- kp_frame[edges[[e]][2], c("x", "y")]
+  
+  if (all(!is.na(p1)) & all(!is.na(p2))) {
+    segments(
+      x0 = as.numeric(p1$x),
+      y0 = as.numeric(p1$y),
+      x1 = as.numeric(p2$x),
+      y1 = as.numeric(p2$y),
+      lwd = 2,
+      col = viridis(2)[1]
+    )
+  }
+}
+
+points(x = kp_frame$x,
+       y = kp_frame$y,
+       pch = 19,
+       cex = 1.5,
+       col = viridis(2)[2])
+```
+
+
+# Calculate measure of gesticulation
+
+function to calculate euclidean distance
+
+```{r}
+euclidean_distance <- function(x1, y1, x2, y2){
+  dist <- sqrt((x2-x1)^2 + (y2-y1)^2)
+  return(dist)
+}
+```
+
+
+```{r}
+calculate_wrist_movement <- function(kp_data){
+  
+  # LEFT WRIST (kp10)
+  kp_data$left_wrist_movement <- 
+      euclidean_distance(x1 = kp_data$kp10_x, 
+                         y1 = kp_data$kp10_y,
+                         x2 = lead(kp_data$kp10_x), 
+                         y2 = lead(kp_data$kp10_y))
+  
+  # RIGHT WRIST (kp11)
+  kp_data$right_wrist_movement <- 
+      euclidean_distance(x1 = kp_data$kp11_x, 
+                         y1 = kp_data$kp11_y,
+                         x2 = lead(kp_data$kp11_x), 
+                         y2 = lead(kp_data$kp11_y))
+  
+  return(kp_data)
+}
+```
+
+```{r}
+speech1_keypoints <- calculate_wrist_movement(speech1_keypoints)
+speech2_keypoints <- calculate_wrist_movement(speech2_keypoints)
+```
+
+```{r}
+# Gesticulation speech 1
+mean(c(speech1_keypoints$left_wrist_movement,
+       speech1_keypoints$right_wrist_movement),
+     na.rm = T)
+
+# Gesticulation speech 2
+mean(c(speech2_keypoints$left_wrist_movement,
+       speech2_keypoints$right_wrist_movement),
+     na.rm = T)
+```
+
+# Calculate measure of posture
+
+```{r}
+calculate_wrist_height <- function(kp_data){
+  
+  # left shoulder: kp6
+  # left wrist: kp10
+  # right shoulder: kp7
+  # right wrist: kp11
+  
+  # left height:
+  kp_data$left_wrist_height <- kp_data$kp6_y - kp_data$kp10_y
+  
+  # right wrist height:
+  kp_data$right_wrist_height <- kp_data$kp7_y - kp_data$kp11_y
+  
+  # height of the higher wrist
+  kp_data$max_wrist_height <- 
+    apply(kp_data[, c("left_wrist_height", "right_wrist_height")], 1, max)
+  
+  return(kp_data)
+}
+```
+
+```{r}
+speech1_keypoints <- calculate_wrist_height(speech1_keypoints)
+speech2_keypoints <- calculate_wrist_height(speech2_keypoints)
+```
+
+```{r}
+mean(speech1_keypoints$max_wrist_height)
+mean(speech2_keypoints$max_wrist_height)
+
+```
+
+
+
+  
