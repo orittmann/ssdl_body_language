@@ -1,5 +1,5 @@
 ---
-title: "MZES SSDL: Computationally Analyzing Politicians' Body Language Using Pose Estimation"
+title: "Computationally Analyzing Politicians' Body Language Using Pose Estimation"
 author: 
   - Oliver Rittmann
 date: "October 16, 2024"
@@ -29,6 +29,7 @@ library(stringr)
 library(jsonlite)
 library(viridis)
 library(scales)
+library(imager)
 ```
 
 
@@ -52,6 +53,7 @@ speech2_raw <- jsonlite::fromJSON(paste0("movenet_results/", json_files[2]))
 
 #head(speech1_raw)
 dim(speech1_raw)
+dim(speech2_raw)
 ```
 
 Dimensions 274 x 1 x 1 x 17 x 3 -- Any ideas what these dimensions are about?
@@ -174,37 +176,95 @@ Key point data:
 
 # Visualize key point data
 
-Let's start by plotting the data without any editing. We want to see what the raw data looks like.
+Let's start by plotting the data without any editing. We want to see what the raw data looks like and compare them to the video frames. I extracted all frames of both videos and stored them im `videos/frames_speech1`and `videos/frames_speech2`, respectively.
+
+We are going to look at the first frame of our second video (that is, `videos/speech2_klaus_ernst.mp4`). Let's first inspect the frame itself:
+
+To plot the image in R, we start by loading the image into our environment using the `load.image()`function provided by the imager-package.
 
 ```{r}
+frame_number <- 1 # you can change this number to inspect other frames
 
+frame_filename <- paste0("frame",
+                         str_pad(frame_number, 5, pad = "0"),
+                         ".png")
+
+image <- load.image(paste0("videos/frames_speech2/",
+                           frame_filename))
+```
+
+What is the size of this image?
+
+```{r}
+x_size <- dim(image)[1]
+y_size <- dim(image)[2]
+
+x_size
+y_size
+```
+
+Plotting the image is actually quite easy:
+
+```{r}
+plot(image,
+       axes = T)
+```
+
+Notice the y-axis: The origin point of the frame is in the upper left corner, with values on both axis increasing downwards (y-axis) and rightwards (x-axis). This is a convention that we need to keep in mind. You will see that it also affects our key point representations.
+
+Next, we will have a look at the key point data of that first frame. First, we extract the keypoints of the first frame from our time series of key points.
+
+
+
+```{r}
 # We want to plot one frame, so let's get the data for one frame
-keypoints <- speech2_keypoints[speech2_keypoints$frame == 1,]
+keypoints <- speech2_keypoints[speech2_keypoints$frame == frame_number,]
 
+keypoints
+```
+
+The frame only shows upper body key points. Thus, so it makes sense to subset the data to those upper body key points and discard all lower body key points.
+
+Remember the list from above? `kp1` to `kp13` are upper body key points while `kp14` to `kp17` are lower body key points.
+
+```{r}
 # we want to subset to the upper body
 upper_body_pattern <- paste0("kp", 1:13, "_", collapse = "|")
 keypoints <- keypoints[str_detect(names(keypoints), upper_body_pattern)]
+```
 
+
+To make plotting a bit easier, we reorganize the remaining data. We want a matrix that stores the x-coordinates of all key points in the one column, and the y-coordinates in another column:
+
+```{r}
 kp_x <- t(keypoints[, str_detect(names(keypoints), "_x")])
 kp_y <- t(keypoints[, str_detect(names(keypoints), "_y")])
 
 kp_frame <- data.frame(cbind(kp_x, kp_y))
 colnames(kp_frame) <- c("x", "y")
+
+kp_frame
 ```
 
-```{r}
-plot(x = kp_frame$x,
-     y = kp_frame$y)
-```
+
+Now we are finally in a position where we can visualize the upper key points of our frame:
+
 ```{r}
 plot(x = kp_frame$x,
      y = kp_frame$y,
      xlim = c(0, 1),
      ylim = c(0, 1),
-     asp = 1)
+     asp = 1,
+     pch = 19)
 ```
 
+Okay, this does not look very helpful yet. Let's add lines between some of the key points to create an image that is closer to the one we've seen on the slides earlier.
+
+
 ```{r}
+
+# this list stores all key points we would like to connect
+
 edges <- list(c(1, 2),    # nose - left eye
               c(1, 3),    # nose - right eye
               c(2, 4),    # left eye - left ear
@@ -225,14 +285,52 @@ edges <- list(c(1, 2),    # nose - left eye
               c(15, 17))  # right knee - right ankle
 
 
-
-
+# 1) We start with an empty plot:
 plot(x = kp_frame$x,
      y = kp_frame$y,
+     type = "n",
      xlim = c(0, 1),
      ylim = c(0, 1),
      asp = 1)
 
+# 2) Next, we add all lines to the plot:
+for (e in 1:length(edges)) {
+  p1 <- kp_frame[edges[[e]][1], c("x", "y")]
+  p2 <- kp_frame[edges[[e]][2], c("x", "y")]
+  
+  if (all(!is.na(p1)) & all(!is.na(p2))) {
+    segments(
+      x0 = as.numeric(p1$x),
+      y0 = as.numeric(p1$y),
+      x1 = as.numeric(p2$x),
+      y1 = as.numeric(p2$y),
+      lwd = 2,
+      col = viridis(2)[1]
+    )
+  }
+}
+
+# 3) And add the key points on top:
+points(x = kp_frame$x,
+       y = kp_frame$y,
+       pch = 19,
+       cex = 1.25,
+       col = viridis(2)[2])
+```
+
+This looks better, but the figure is upside down. Why? Because, as we've seen earlier, the y-axis is reversed. We can fix this quite easily by adjusting `ylim`:
+
+```{r}
+
+plot(x = kp_frame$x,
+     y = kp_frame$y,
+     type = "n",
+     xlim = c(0, 1),
+     ylim = c(1, 0), # changing this from c(0,1) to c(1,0) fixes the y-axis
+     asp = 1,)
+  
+
+# The rest of the code remains the same:
 
 for (e in 1:length(edges)) {
   p1 <- kp_frame[edges[[e]][1], c("x", "y")]
@@ -253,24 +351,33 @@ for (e in 1:length(edges)) {
 points(x = kp_frame$x,
        y = kp_frame$y,
        pch = 19,
-       cex = 1.5,
+       cex = 1.25,
        col = viridis(2)[2])
 ```
 
-```{r}
-kp_frame$y_rev <- -kp_frame$y
+This looks more like what we envisioned. We can also look at the frame and the key point representation side by side:
 
+
+
+```{r}
+
+# create two columns
+par(mfrow = c(1, 2))
+
+# plot the frame:
+plot(image,
+       axes = T)
+
+# plot the key point representation
 plot(x = kp_frame$x,
      y = kp_frame$y,
      asp = 1,
      xlim = c(0, 1),
-     ylim = c(1, 0),
-     axes = T)
-  
-polygon(x = c(0, 1, 1, 0),
-        y = c(720/1296+0.25, 720/1296+0.25, 0.25, 0.25),
-        col = alpha("grey75", 1),
-        border = "grey75")
+     ylim = c(1, 0), # changing this from c(0,1) to c(1,0) fixes the y-axis
+     axes = T,
+     xlab = "",
+     ylab = "",
+     bty = "n")
 
 
 for (e in 1:length(edges)) {
@@ -292,14 +399,57 @@ for (e in 1:length(edges)) {
 points(x = kp_frame$x,
        y = kp_frame$y,
        pch = 19,
-       cex = 1.5,
+       cex = 1.25,
        col = viridis(2)[2])
 ```
 
+Or, we can plot the key points on top of the frame. To do so, we need to rescale the key points. The key-points are scaled between zero and one, whereas our image are scaled according to their pixel size, i.e. 720x400.
+
+These two functions will rescale the x- and y-values of our key point representations so that they match the scale of the frame:
+
+```{r}
+scale_x <- function(x, x_size){x*x_size}
+scale_y <- function(y, x_size, y_size){y*x_size-((x_size-y_size)/2)}
+
+kp_frame$x_scaled <- scale_x(x = kp_frame$x, x_size = x_size)
+kp_frame$y_scaled <- scale_y(y = kp_frame$y, x_size = x_size, y_size = y_size)
+
+```
+
+```{r}
+plot(image,
+     axes = F)
+
+for (e in 1:length(edges)) {
+  p1 <- kp_frame[edges[[e]][1], c("x_scaled", "y_scaled")]
+  p2 <- kp_frame[edges[[e]][2], c("x_scaled", "y_scaled")]
+  
+  if (all(!is.na(p1)) & all(!is.na(p2))) {
+    segments(
+      x0 = as.numeric(p1$x),
+      y0 = as.numeric(p1$y),
+      x1 = as.numeric(p2$x),
+      y1 = as.numeric(p2$y),
+      lwd = 2,
+      col = viridis(2)[1]
+    )
+  }
+}
+
+points(x = kp_frame$x_scaled,
+       y = kp_frame$y_scaled,
+       pch = 19,
+       cex = 1.25,
+       col = viridis(2)[2])
+```
+
+I hope visualizing individual frames gave you a feeling for the data. We now proceed to calculating our two body language indicators from time series of key point representations. That is, we will calculate our indicator of gesticulation and our measure of posture for both speech sequences. 
 
 # Calculate measure of gesticulation
 
-function to calculate euclidean distance
+Let's recall how we would like to quantify the level of gesticulation shown by the speaker. We defined gesticulation as dynamic use of gestures, specifically through hand movement. We will make use of the fact that hand movement is captured by the distances of hand locations between frames. The more a speaker moves their hands, the higher the distance of hand locations between two consecutive frames. We construct our **measure of gesticulation** as the **average between-frame distance of the speaker's left and right hand**.
+
+To calculate between-frame distances of key points, we need a function to calculate euclidean distances:
 
 ```{r}
 euclidean_distance <- function(x1, y1, x2, y2){
@@ -307,6 +457,8 @@ euclidean_distance <- function(x1, y1, x2, y2){
   return(dist)
 }
 ```
+
+With this function at hand, we can code a function that calculates the distances of the left and right wrists between all frames of a video sequence:
 
 
 ```{r}
@@ -330,10 +482,21 @@ calculate_wrist_movement <- function(kp_data){
 }
 ```
 
+Let's apply the function to both speeches
+
 ```{r}
 speech1_keypoints <- calculate_wrist_movement(speech1_keypoints)
 speech2_keypoints <- calculate_wrist_movement(speech2_keypoints)
 ```
+
+The function added variables for left and right wrist movement
+
+```{r}
+head(speech1_keypoints[, c("left_wrist_movement", "right_wrist_movement")])
+head(speech2_keypoints[, c("left_wrist_movement", "right_wrist_movement")])
+```
+
+All left to do is to calculate the average movement of the left and right wrist:
 
 ```{r}
 # Gesticulation speech 1
