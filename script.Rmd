@@ -33,6 +33,15 @@ library(imager)
 ```
 
 
+
+In this workshop, we'll analyze the video sequences of two speeches, both delivered in the German Bundestag. I've chosen two speeches that differ strongly regarding the speakers' nonverbal displays. **Speech 1** by Gabriela Heinrich can be characterized as a speech with low nonverbal effort, while **speech 2** by Klaus Ernst is a speech with high nonverbal effort.
+
+![Speech 1: Garbiela Heinrich, low nonverbal effort](videos/gifs/speech1_gabriela_heinrich.gif)
+
+![Speech 2: Klaus Ernst, high nonverbal effort](videos/gifs/speech2_klaus_ernst.gif)
+
+
+
 # Load movenet prediction output (pose estimation) into R
 
 The pose estimation data comes in .json format. We have two files, one for each video.
@@ -255,7 +264,11 @@ plot(x = kp_frame$x,
      xlim = c(0, 1),
      ylim = c(0, 1),
      asp = 1,
-     pch = 19)
+     pch = 19,
+     las = 1,
+     xlab = "x-coordinates",
+     ylab = "y-coordinates")
+grid()
 ```
 
 Okay, this does not look very helpful yet. Let's add lines between some of the key points to create an image that is closer to the one we've seen on the slides earlier.
@@ -291,7 +304,11 @@ plot(x = kp_frame$x,
      type = "n",
      xlim = c(0, 1),
      ylim = c(0, 1),
-     asp = 1)
+     asp = 1,
+     las = 1,
+     xlab = "x-coordinates",
+     ylab = "y-coordinates")
+grid()
 
 # 2) Next, we add all lines to the plot:
 for (e in 1:length(edges)) {
@@ -305,7 +322,7 @@ for (e in 1:length(edges)) {
       x1 = as.numeric(p2$x),
       y1 = as.numeric(p2$y),
       lwd = 2,
-      col = viridis(2)[1]
+      col = viridis(1, 0.5)
     )
   }
 }
@@ -315,7 +332,7 @@ points(x = kp_frame$x,
        y = kp_frame$y,
        pch = 19,
        cex = 1.25,
-       col = viridis(2)[2])
+       col = viridis(1))
 ```
 
 This looks better, but the figure is upside down. Why? Because, as we've seen earlier, the y-axis is reversed. We can fix this quite easily by adjusting `ylim`:
@@ -327,7 +344,11 @@ plot(x = kp_frame$x,
      type = "n",
      xlim = c(0, 1),
      ylim = c(1, 0), # changing this from c(0,1) to c(1,0) fixes the y-axis
-     asp = 1,)
+     asp = 1,
+     las = 1,
+     xlab = "x-coordinates",
+     ylab = "y-coordinates")
+grid()
   
 
 # The rest of the code remains the same:
@@ -343,7 +364,7 @@ for (e in 1:length(edges)) {
       x1 = as.numeric(p2$x),
       y1 = as.numeric(p2$y),
       lwd = 2,
-      col = viridis(2)[1]
+      col = viridis(1, 0.5)
     )
   }
 }
@@ -352,7 +373,7 @@ points(x = kp_frame$x,
        y = kp_frame$y,
        pch = 19,
        cex = 1.25,
-       col = viridis(2)[2])
+       col = viridis(1))
 ```
 
 This looks more like what we envisioned. We can also look at the frame and the key point representation side by side:
@@ -366,7 +387,7 @@ par(mfrow = c(1, 2))
 
 # plot the frame:
 plot(image,
-       axes = T)
+     axes = T)
 
 # plot the key point representation
 plot(x = kp_frame$x,
@@ -377,7 +398,9 @@ plot(x = kp_frame$x,
      axes = T,
      xlab = "",
      ylab = "",
-     bty = "n")
+     bty = "n",
+     las = 1)
+grid()
 
 
 for (e in 1:length(edges)) {
@@ -391,7 +414,7 @@ for (e in 1:length(edges)) {
       x1 = as.numeric(p2$x),
       y1 = as.numeric(p2$y),
       lwd = 2,
-      col = viridis(2)[1]
+      col = viridis(1, 0.5)
     )
   }
 }
@@ -400,7 +423,7 @@ points(x = kp_frame$x,
        y = kp_frame$y,
        pch = 19,
        cex = 1.25,
-       col = viridis(2)[2])
+       col = viridis(1))
 ```
 
 Or, we can plot the key points on top of the frame. To do so, we need to rescale the key points. The key-points are scaled between zero and one, whereas our image are scaled according to their pixel size, i.e. 720x400.
@@ -496,21 +519,161 @@ head(speech1_keypoints[, c("left_wrist_movement", "right_wrist_movement")])
 head(speech2_keypoints[, c("left_wrist_movement", "right_wrist_movement")])
 ```
 
-All left to do is to calculate the average movement of the left and right wrist:
+We can visualize the times-series of the left and right wrist movement variables. 
+
+```{r}
+par(mfrow = c(1, 2))
+
+# LEFT WRIST
+plot(x = speech1_keypoints$frame,
+     y = speech1_keypoints$left_wrist_movement,
+     type = "n",
+     las = 1,
+     xlab = "Video Frame",
+     ylab = "",
+     main = "Left Wrist Movement",
+     ylim = c(0, 0.2),
+     xlim = c(0, 450))
+
+grid()
+
+# Speech 1, left wrist
+lines(x = speech1_keypoints$frame,
+      y = speech1_keypoints$left_wrist_movement,
+      col = viridis(3)[1],
+      lwd = 2)
+
+# annotation
+speech1_pos_id <- which.max(speech1_keypoints$frame)-1
+text(x = speech1_keypoints$frame[speech1_pos_id],
+     y = speech1_keypoints$left_wrist_movement[speech1_pos_id],
+     labels = "Speech 1",
+     pos = 4,
+     col = viridis(3)[1])
+
+# Speech 2, left wrist
+lines(x = speech2_keypoints$frame,
+      y = speech2_keypoints$left_wrist_movement,
+      col = viridis(3)[2],
+      lwd = 2)
+
+# annotation
+speech2_pos_id_l <- which.max(speech2_keypoints$left_wrist_movement)
+text(x = speech2_keypoints$frame[speech2_pos_id_l],
+     y = speech2_keypoints$left_wrist_movement[speech2_pos_id_l],
+     labels = "Speech 2",
+     pos = 3,
+     col = viridis(3)[2])
+
+
+
+# RIGHT WRIST
+plot(x = speech1_keypoints$frame,
+     y = speech1_keypoints$right_wrist_movement,
+     type = "n",
+     las = 1,
+     xlab = "Video Frame",
+     ylab = "",
+     main = "Right Wrist Movement",
+     ylim = c(0, 0.2),
+     xlim = c(0, 450))
+
+grid()
+
+# Speech 1, right wrist
+lines(x = speech1_keypoints$frame,
+      y = speech1_keypoints$right_wrist_movement,
+      col = viridis(3)[1],
+      lwd = 2)
+
+# annotation
+text(x = speech1_keypoints$frame[speech1_pos_id],
+     y = speech1_keypoints$right_wrist_movement[speech1_pos_id],
+     labels = "Speech 1",
+     pos = 4,
+     col = viridis(3)[1])
+
+# Speech 2, right wrist
+lines(x = speech2_keypoints$frame,
+      y = speech2_keypoints$right_wrist_movement,
+      col = viridis(3)[2],
+      lwd = 2)
+
+# annotation
+speech2_pos_id_r <- which.max(speech2_keypoints$right_wrist_movement)
+text(x = speech2_keypoints$frame[speech2_pos_id_r],
+     y = speech2_keypoints$right_wrist_movement[speech2_pos_id_r],
+     labels = "Speech 2",
+     pos = 4,
+     col = viridis(3)[2])
+
+```
+
+Our quantification of wrist movement confirms two observations: First, we see more overall hand (wrist) movement in speech 2 than in speech 1. Second, Klaus Ernst gesticulates more strongly with his right hand than with his left hand, resulting in more movement in his right wrist compared to his left wrist.
+
+To see whether those observations are correct, let's have a look at both video sequences again:
+
+![](videos/gifs/speech1_gabriela_heinrich.gif)
+
+![](videos/gifs/speech2_klaus_ernst.gif)
+
+
+To get our measure of gesticulation, all left to do is to summarize the times series of wrist movement by calculating the average movement of the left and right wrist in both speeches:
 
 ```{r}
 # Gesticulation speech 1
-mean(c(speech1_keypoints$left_wrist_movement,
-       speech1_keypoints$right_wrist_movement),
-     na.rm = T)
+gesticulations_speech1 <- 
+  mean(c(speech1_keypoints$left_wrist_movement,
+         speech1_keypoints$right_wrist_movement),
+       na.rm = T)
 
 # Gesticulation speech 2
-mean(c(speech2_keypoints$left_wrist_movement,
-       speech2_keypoints$right_wrist_movement),
-     na.rm = T)
+gesticulations_speech2 <- 
+  mean(c(speech2_keypoints$left_wrist_movement,
+         speech2_keypoints$right_wrist_movement),
+       na.rm = T)
+
+# which value should be higher?
+gesticulations_speech1
+gesticulations_speech2
 ```
 
+Here is a visual comparison of the result:
+
+```{r}
+plot(x = c(gesticulations_speech1,
+           gesticulations_speech2),
+     y = 2:1,
+     xlim = c(-0.005, 0.03),
+     ylim = c(0.5, 2.5),
+     yaxt = "n",
+     xlab = "Gesticulation Indicator",
+     ylab = "")
+grid()
+abline(v = 0,
+       lwd = 2)
+points(x = c(gesticulations_speech1,
+             gesticulations_speech2),
+       y = 2:1,
+     pch = 19,
+     cex = 2,
+     col = viridis(1))
+text(x = c(gesticulations_speech1,
+           gesticulations_speech2),
+     y = 2:1,
+     labels = c("Speech 1\n(Gabriela Heinrich)",
+                "Speech 2\n(Klaus Ernst)"),
+     pos = 4,
+     col = viridis(1))
+```
+
+In line with what we would hope and expect, the gesticulation indicator suggests that Klaus Ernst (speech 2) showed higher levels of gesticulation than Gabriela Heinrich (speech 1).
+
 # Calculate measure of posture
+
+Next, we calculate the measure of posture. While the gesticulation measure quantifies hand movement irrespective of its form, posture quantifies the extent to which speakers adopt body size increasing postures. We quantify this by calculating the average height of the wrist, relative to the shoulder. Our measure of posture is the average height of the higher wrist across all frames in a speech sequence.
+
+We start with a function that calculates the height of the left and right wrist, and determines which of both is higher in any frame of a sequence:
 
 ```{r}
 calculate_wrist_height <- function(kp_data){
@@ -534,17 +697,157 @@ calculate_wrist_height <- function(kp_data){
 }
 ```
 
+We apply the function:
+
 ```{r}
 speech1_keypoints <- calculate_wrist_height(speech1_keypoints)
 speech2_keypoints <- calculate_wrist_height(speech2_keypoints)
 ```
 
+Before averaging over all frames, let's take a look at the time series again.
+
 ```{r}
-mean(speech1_keypoints$max_wrist_height)
-mean(speech2_keypoints$max_wrist_height)
+par(mfrow = c(1, 2))
+
+# LEFT WRIST
+plot(x = speech1_keypoints$frame,
+     y = speech1_keypoints$right_wrist_height,
+     type = "n",
+     las = 1,
+     xlab = "Video Frame",
+     ylab = "",
+     main = "Left Wrist Height",
+     ylim = c(-0.27, 0.11),
+     xlim = c(0, 450))
+
+grid()
+
+# Speech 1, left wrist
+lines(x = speech1_keypoints$frame,
+      y = speech1_keypoints$left_wrist_height,
+      col = viridis(3)[1],
+      lwd = 2)
+
+# annotation
+speech1_pos_id <- which.max(speech1_keypoints$frame)-1
+text(x = speech1_keypoints$frame[speech1_pos_id],
+     y = speech1_keypoints$left_wrist_height[speech1_pos_id],
+     labels = "Speech 1",
+     pos = 4,
+     col = viridis(3)[1])
+
+# Speech 2, left wrist
+lines(x = speech2_keypoints$frame,
+      y = speech2_keypoints$left_wrist_height,
+      col = viridis(3)[2],
+      lwd = 2)
+
+# annotation
+speech2_pos_id_l <- which.max(speech2_keypoints$left_wrist_height)
+text(x = speech2_keypoints$frame[speech2_pos_id_l],
+     y = speech2_keypoints$left_wrist_height[speech2_pos_id_l],
+     labels = "Speech 2",
+     pos = 3,
+     col = viridis(3)[2])
+
+
+
+# RIGHT WRIST
+plot(x = speech1_keypoints$frame,
+     y = speech1_keypoints$right_wrist_height,
+     type = "n",
+     las = 1,
+     xlab = "Video Frame",
+     ylab = "",
+     main = "Right Wrist Height",
+     ylim = c(-0.27, 0.11),
+     xlim = c(0, 450))
+
+grid()
+
+# Speech 1, right wrist
+lines(x = speech1_keypoints$frame,
+      y = speech1_keypoints$right_wrist_height,
+      col = viridis(3)[1],
+      lwd = 2)
+
+# annotation
+text(x = speech1_keypoints$frame[speech1_pos_id],
+     y = speech1_keypoints$right_wrist_height[speech1_pos_id],
+     labels = "Speech 1",
+     pos = 4,
+     col = viridis(3)[1])
+
+# Speech 2, right wrist
+lines(x = speech2_keypoints$frame,
+      y = speech2_keypoints$right_wrist_height,
+      col = viridis(3)[2],
+      lwd = 2)
+
+# annotation
+speech2_pos_id_r <- which.max(speech2_keypoints$right_wrist_height)
+text(x = speech2_keypoints$frame[speech2_pos_id_r],
+     y = speech2_keypoints$right_wrist_height[speech2_pos_id_r],
+     labels = "Speech 2",
+     pos = 4,
+     col = viridis(3)[2])
 
 ```
 
+We observe three things: First, while Gabriela Heinrich raises her right wrist to some extent in the middle of the sequence, she never raises her wrists above her shoulders. Second, Klaus Ernst frequently raises both wrist above shoulder height in the first half of the sequence. Third, in the second half of the sequence, Klaus Ernst only raises his right wrist.
+
+We can again confirm these observations by inspecting the videos:
+
+![](videos/gifs/speech1_gabriela_heinrich.gif)
+
+![](videos/gifs/speech2_klaus_ernst.gif)
+
+The summary measure of posture is given by the average height of the higher wrist across all frames of a sequence:
+
+```{r}
+posture_speech1 <- mean(speech1_keypoints$max_wrist_height)
+posture_speech2 <- mean(speech2_keypoints$max_wrist_height)
+
+# which should be higher?
+posture_speech1
+posture_speech2
+```
+
+Again, we'll visually compare the result of both speeches:
+
+```{r}
+plot(x = c(posture_speech1,
+           posture_speech2),
+     y = 2:1,
+     xlim = c(-0.3, 0.05),
+     ylim = c(0.5, 2.5),
+     yaxt = "n",
+     xlab = "Posture Indicator",
+     ylab = "")
+grid()
+abline(v = 0,
+       lwd = 2)
+points(x = c(posture_speech1,
+             posture_speech2),
+       y = 2:1,
+     pch = 19,
+     cex = 2,
+     col = viridis(1))
+text(x = c(posture_speech1,
+           posture_speech2),
+     y = 2:1,
+     labels = c("Speech 1\n(Gabriela Heinrich)",
+                "Speech 2\n(Klaus Ernst)"),
+     pos = 2,
+     col = viridis(1))
+
+```
+
+Both values are negative, indicating that, on average, both speakers held their wrist below their shoulders. Again, the results confirm our intuition, showing that Klaus Ernst made more use of body-size increasing postures than Gabriela Heinrich.
 
 
-  
+# Wrapping up
+
+
+
+
