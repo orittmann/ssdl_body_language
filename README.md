@@ -5,7 +5,7 @@ This repository accompanies the [MZES SSDL](https://www.mzes.uni-mannheim.de/soc
 
 ### Timeline of the workshop
 
-  1. **Input talk**: We will start with a 10-minute input talk. You can find the slides under `slides/slides.pdf`.
+  1. **Input talk**: We will start with a 10-minute input talk. You can find the slides at `slides/ssdl_slides.pdf`.
   2. **Hands-on coding session:** Our coding session will comprise two parts. First, we will work with python to apply pose estimation to our videos. Second, we will switch to R to explore and analyze the resulting data
     
         - **Applying pose estimation in python**: First, we will implement the pose estimation on two short videos of speeches in the German Bundestag. We will do so by using Google Colab. You open the Colab notebook, `SSDL_pose_estimation.ipynb`, by following this [link](https://colab.research.google.com/github/orittmann/ssdl_body_language).
