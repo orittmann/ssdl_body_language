@@ -23,13 +23,26 @@ mainfont: SourceSansPro
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(here)
-library(dplyr)
-library(stringr)
-library(jsonlite)
-library(viridis)
-library(scales)
-library(imager)
+# Install (if necessary) and load all packages we need today
+
+p_needed <-
+  c("here", 
+    "dplyr",
+    "stringr",
+    "jsonlite",
+    "viridis",
+    "scales",
+    "imager")
+
+packages <- rownames(installed.packages())
+
+p_to_install <- p_needed[!(p_needed %in% packages)]
+
+if (length(p_to_install) > 0) {
+  install.packages(p_to_install)
+}
+
+sapply(p_needed, require, character.only = TRUE)
 ```
 
 
@@ -527,7 +540,7 @@ head(speech2_keypoints[, c("left_wrist_movement", "right_wrist_movement")])
 
 We can visualize the times-series of the left and right wrist movement variables. 
 
-```{r}
+```{r, echo=FALSE}
 par(mfrow = c(1, 2))
 
 # LEFT WRIST
@@ -619,9 +632,11 @@ Our quantification of wrist movement confirms two observations: First, we see mo
 
 To see whether those observations are correct, let's have a look at both video sequences again:
 
-![](videos/gifs/speech1_gabriela_heinrich.gif)
+<div style="display: flex; justify-content: space-between;">
+  <img src="videos/gifs/speech1_gabriela_heinrich.gif" alt="Speech 1 by Gabriela Heinrich" style="width: 48%; margin-right: 1%;">
+  <img src="videos/gifs/speech2_klaus_ernst.gif" alt="Speech 2 by Klaus Ernst" style="width: 48%;">
+</div>
 
-![](videos/gifs/speech2_klaus_ernst.gif)
 
 
 To get our measure of gesticulation, all left to do is to summarize the times series of wrist movement by calculating the average movement of the left and right wrist in both speeches:
@@ -646,7 +661,7 @@ gesticulations_speech2
 
 Here is a visual comparison of the result:
 
-```{r}
+```{r, echo=FALSE}
 plot(x = c(gesticulations_speech1,
            gesticulations_speech2),
      y = 2:1,
@@ -712,7 +727,7 @@ speech2_keypoints <- calculate_wrist_height(speech2_keypoints)
 
 Before averaging over all frames, let's take a look at the time series again.
 
-```{r}
+```{r, echo=FALSE}
 par(mfrow = c(1, 2))
 
 # LEFT WRIST
@@ -804,9 +819,11 @@ We observe three things: First, while Gabriela Heinrich raises her right wrist t
 
 We can again confirm these observations by inspecting the videos:
 
-![](videos/gifs/speech1_gabriela_heinrich.gif)
+<div style="display: flex; justify-content: space-between;">
+  <img src="videos/gifs/speech1_gabriela_heinrich.gif" alt="Speech 1 by Gabriela Heinrich" style="width: 48%; margin-right: 1%;">
+  <img src="videos/gifs/speech2_klaus_ernst.gif" alt="Speech 2 by Klaus Ernst" style="width: 48%;">
+</div>
 
-![](videos/gifs/speech2_klaus_ernst.gif)
 
 The summary measure of posture is given by the average height of the higher wrist across all frames of a sequence:
 
@@ -821,7 +838,7 @@ posture_speech2
 
 Again, we'll visually compare the result of both speeches:
 
-```{r}
+```{r, echo=FALSE}
 plot(x = c(posture_speech1,
            posture_speech2),
      y = 2:1,
