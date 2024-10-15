@@ -34,17 +34,23 @@ library(imager)
 
 
 
-In this workshop, we'll analyze the video sequences of two speeches, both delivered in the German Bundestag. I've chosen two speeches that differ strongly regarding the speakers' nonverbal displays. **Speech 1** by Gabriela Heinrich can be characterized as a speech with low nonverbal effort, while **speech 2** by Klaus Ernst is a speech with high nonverbal effort.
+In the second part of the workshop, we'll analyze the pose estimation output of the video sequences of two speeches, both delivered in the German Bundestag. I've chosen two speeches that differ strongly regarding the speakers' nonverbal displays. **Speech 1** by Gabriela Heinrich can be characterized as a speech with low nonverbal effort, while **speech 2** by Klaus Ernst is a speech with high nonverbal effort. Let's have a second look at what those speeches look like.
 
 ![Speech 1: Garbiela Heinrich, low nonverbal effort](videos/gifs/speech1_gabriela_heinrich.gif)
 
 ![Speech 2: Klaus Ernst, high nonverbal effort](videos/gifs/speech2_klaus_ernst.gif)
 
+In the remainder of the workshop, we will cover five sections. 
 
+  1. Loading pose estimation output into R
+  2. Organizing pose estimation data in as a time-series data set
+  3. Visualizing the pose estimation data
+  4. Calculating measure of gesticulation
+  5. Calculating measure of posture
 
-# Load movenet prediction output (pose estimation) into R
+# 1. Loading pose estimation (MoveNet) output into R
 
-The pose estimation data comes in .json format. We have two files, one for each video.
+The pose estimation data comes in `.json` format and is stored in `movenet_results`. We have two files, one for each video.
 
 ```{r}
 files <- list.files(here("movenet_results"))
@@ -54,18 +60,17 @@ json_files <- files[str_detect(files, ".json")]
 json_files
 ```
 
-Let's have a look at how the data looks like
+Let's load the data into our environment and have a look at how it looks like.
 
 ```{r}
 speech1_raw <- jsonlite::fromJSON(paste0("movenet_results/", json_files[1]))
 speech2_raw <- jsonlite::fromJSON(paste0("movenet_results/", json_files[2]))
 
-#head(speech1_raw)
 dim(speech1_raw)
 dim(speech2_raw)
 ```
 
-Dimensions 274 x 1 x 1 x 17 x 3 -- Any ideas what these dimensions are about?
+The dimensions are 274 x 1 x 1 x 17 x 3 -- Any ideas what these dimensions are about?
 
 ```{r}
 # the first frame
@@ -75,7 +80,7 @@ speech1_raw[1,,,,]
 speech1_raw[2,,,,]
 ```
 
-The first two columns of the last dimension represents the y- and x- coordinates (normalized to image frame, i.e. range in [0.0, 1.0]) of the 17 keypoints:
+The first two columns of the last dimension represents the y- and x-coordinates of the 17 body keypoints:
 
   - 1 nose
   - 2 left eye
@@ -97,9 +102,9 @@ The first two columns of the last dimension represents the y- and x- coordinates
 
 The third column tells us how confident the model was in its detection, with confidence scores ranging between 0 and 1.
 
-# Organize pose estimation data
+# 2. Organizing pose estimation data in as a time-series data set
 
-Let's bring this data into a format that makes it easier to work with.
+Let's bring this data into a format that makes it easier to work with. The following function requires as input the keypoint data as loaded in the previous step, a file name, and the length of the respective video. The function takes the data and puts it into a time-series data frame that we can work with more easily.
 
 ```{r}
 array_to_timeseries <- function(data_list, 
@@ -137,9 +142,9 @@ array_to_timeseries <- function(data_list,
 }
 ```
 
-```{r}
-# apply to both videos
+Let's apply the function to our two speeches.
 
+```{r}
 speech1_keypoints <- 
   array_to_timeseries(data_list = speech1_raw,
                       file_name = json_files[1],
@@ -158,6 +163,8 @@ What do we have now?
 ```{r}
 head(speech1_keypoints)
 ```
+
+The new data frame contains the following variables:
 
 Metadata: 
 
@@ -183,13 +190,12 @@ Key point data:
   - ...
   - `kp17_conf` = confidence for key point 17 (right ankle)
 
-# Visualize key point data
 
-Let's start by plotting the data without any editing. We want to see what the raw data looks like and compare them to the video frames. I extracted all frames of both videos and stored them im `videos/frames_speech1`and `videos/frames_speech2`, respectively.
+# 3. Visualizing pose estimation data
 
-We are going to look at the first frame of our second video (that is, `videos/speech2_klaus_ernst.mp4`). Let's first inspect the frame itself:
+In this section we want to get a feeling for the data by looking at it visually.We want to see what the raw pose estimation data looks like and compare it to the video frames. I extracted all frames of both videos and stored them in `videos/frames_speech1`and `videos/frames_speech2`, respectively.
 
-To plot the image in R, we start by loading the image into our environment using the `load.image()`function provided by the imager-package.
+We are going to look at the first frame of our second video (that is, `videos/speech2_klaus_ernst.mp4`). Let's first inspect the frame itself. To plot the image in R, we start by loading the image into our environment using the `load.image()`-function provided by the `imager`-package.
 
 ```{r}
 frame_number <- 1 # you can change this number to inspect other frames
@@ -468,7 +474,7 @@ points(x = kp_frame$x_scaled,
 
 I hope visualizing individual frames gave you a feeling for the data. We now proceed to calculating our two body language indicators from time series of key point representations. That is, we will calculate our indicator of gesticulation and our measure of posture for both speech sequences. 
 
-# Calculate measure of gesticulation
+# 4. Calculating measure of gesticulation
 
 Let's recall how we would like to quantify the level of gesticulation shown by the speaker. We defined gesticulation as dynamic use of gestures, specifically through hand movement. We will make use of the fact that hand movement is captured by the distances of hand locations between frames. The more a speaker moves their hands, the higher the distance of hand locations between two consecutive frames. We construct our **measure of gesticulation** as the **average between-frame distance of the speaker's left and right hand**.
 
@@ -669,7 +675,7 @@ text(x = c(gesticulations_speech1,
 
 In line with what we would hope and expect, the gesticulation indicator suggests that Klaus Ernst (speech 2) showed higher levels of gesticulation than Gabriela Heinrich (speech 1).
 
-# Calculate measure of posture
+# Calculating measure of posture
 
 Next, we calculate the measure of posture. While the gesticulation measure quantifies hand movement irrespective of its form, posture quantifies the extent to which speakers adopt body size increasing postures. We quantify this by calculating the average height of the wrist, relative to the shoulder. Our measure of posture is the average height of the higher wrist across all frames in a speech sequence.
 
@@ -847,6 +853,13 @@ Both values are negative, indicating that, on average, both speakers held their 
 
 
 # Wrapping up
+
+In this workshop, we learned how to apply the pose estimation model `MoveNet` to videos of political speech, explored the resulting data, and calculated measures of gesticulation and posture based on it. 
+
+For a more detailed discussion on the application of pose estimation models for the analysis of politicians' body language during political speech, please refer to the following paper:
+
+  - Rittmann, Oliver (2024). A Measurement Framework for Computationally Analyzing Politicians' Body Language. _OSF Preprint_, available at [doi.org/10.31219/osf.io/9wynp](https://doi.org/10.31219/osf.io/9wynp).
+
 
 
 
