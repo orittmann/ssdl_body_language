@@ -679,7 +679,7 @@ text(x = c(gesticulations_speech1,
 
 In line with what we would hope and expect, the gesticulation indicator suggests that Klaus Ernst (Speech 2) showed higher levels of gesticulation than Gabriela Heinrich (Speech 1).
 
-# Calculating measure of posture
+# 5. Calculating measure of posture
 
 Next, we calculate the measure of posture. While the gesticulation measure quantifies hand movement irrespective of its form, posture quantifies the extent to which speakers adopt body size-increasing postures. We quantify this by calculating the average height of the wrist relative to the shoulder. Our measure of posture is the average height of the higher wrist across all frames in a speech sequence.
 
