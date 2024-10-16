@@ -45,9 +45,9 @@ if (length(p_to_install) > 0) {
 sapply(p_needed, require, character.only = TRUE)
 ```
 
+In the [first half of this workshop](https://colab.research.google.com/github/orittmann/ssdl_body_language), we applied the pose estimation model [MoveNet](https://www.tensorflow.org/hub/tutorials/movenet) to the video sequences of two speeches, both delivered in the German Bundestag. This model detects and traces key points of the human body, in our case of the speaker, throughout videos.
 
-
-In the second part of the workshop, we'll analyze the pose estimation output of the video sequences of two speeches, both delivered in the German Bundestag. I've chosen two speeches that differ strongly regarding the speakers' nonverbal displays. **Speech 1** by Gabriela Heinrich can be characterized as a speech with low nonverbal effort, while **speech 2** by Klaus Ernst is a speech with high nonverbal effort. Let's have a second look at what those speeches look like.
+In the second part of the workshop, we'll analyze the output data of pose estimation. I've chosen two speeches that differ strongly regarding the speakers' nonverbal displays. **Speech 1** by Gabriela Heinrich can be characterized as a speech with low nonverbal effort, while **Speech 2** by Klaus Ernst is a speech with high nonverbal effort. Our goal is to see how these contrastive delivery styles are reflected in the pose estimation data. To start, let's have a second look at the two speeches:
 
 ![Speech 1: Garbiela Heinrich, low nonverbal effort](videos/gifs/speech1_gabriela_heinrich.gif)
 
@@ -63,7 +63,7 @@ In the remainder of the workshop, we will cover five sections.
 
 # 1. Loading pose estimation (MoveNet) output into R
 
-The pose estimation data comes in `.json` format and is stored in `movenet_results`. We have two files, one for each video. Let's load the data into our environment and have a look at how it looks like.
+The pose estimation data comes in `.json` format and is stored in `movenet_results`. We have two files, one for each video. Let's load the data into our environment and see what it looks like.
 
 ```{r}
 speech1_raw <- jsonlite::fromJSON("movenet_results/speech1_gabriela_heinrich.json")
@@ -73,7 +73,7 @@ dim(speech1_raw)
 dim(speech2_raw)
 ```
 
-The dimensions are 274 x 1 x 1 x 17 x 3 -- Any ideas what these dimensions are about?
+The dimensions are 274 x 1 x 1 x 17 x 3 -- Any idea what these dimensions are about?
 
 ```{r}
 # the first frame
@@ -83,7 +83,7 @@ speech1_raw[1,,,,]
 speech1_raw[2,,,,]
 ```
 
-The first two columns of the last dimension represents the y- and x-coordinates of the 17 body keypoints:
+The first two columns of the last dimension represent the y- and x-coordinates of the 17 body key points:
 
   - 1 nose
   - 2 left eye
@@ -105,9 +105,9 @@ The first two columns of the last dimension represents the y- and x-coordinates 
 
 The third column tells us how confident the model was in its detection, with confidence scores ranging between 0 and 1.
 
-# 2. Organizing pose estimation data in as a time-series data set
+# 2. Organizing pose estimation data as a time-series data set
 
-Let's bring this data into a format that makes it easier to work with. The following function requires as input the keypoint data as loaded in the previous step, a file name, and the length of the respective video. The function takes the data and puts it into a time-series data frame that we can work with more easily.
+Let's bring this data into a format that makes it easier to work with. The following function requires the keypoint data loaded in the previous step, a file name, and the length of the respective video. The function takes the data and puts it into a time-series data frame that we can work with more easily.
 
 ```{r}
 array_to_timeseries <- function(data_list, 
@@ -196,9 +196,9 @@ Key point data:
 
 # 3. Visualizing pose estimation data
 
-In this section we want to get a feeling for the data by looking at it visually.We want to see what the raw pose estimation data looks like and compare it to the video frames. I extracted all frames of both videos and stored them in `videos/frames_speech1`and `videos/frames_speech2`, respectively.
+In this section we want to get a feel for the data by looking at it visually. We want to see what the raw pose estimation data looks like and compare it to the video frames. I extracted all frames of both videos and stored them in `videos/frames_speech1`and `videos/frames_speech2`, respectively.
 
-We are going to look at the first frame of our second video (that is, `videos/speech2_klaus_ernst.mp4`). Let's first inspect the frame itself. To plot the image in R, we start by loading the image into our environment using the `load.image()`-function provided by the `imager`-package.
+We will look at the first frame of our second video (that is, `videos/speech2_klaus_ernst.mp4`). Let's first inspect the frame itself. To plot the image in R, we start by loading the image into our environment using the `load.image()`-function provided by the `imager`-package.
 
 ```{r}
 frame_number <- 1 # you can change this number to inspect other frames
@@ -228,9 +228,9 @@ plot(image,
        axes = T)
 ```
 
-Notice the y-axis: The origin point of the frame is in the upper left corner, with values on both axis increasing downwards (y-axis) and rightwards (x-axis). This is a convention that we need to keep in mind. You will see that it also affects our key point representations.
+Notice the y-axis: The origin point of the frame is in the upper left corner, with values on both axes increasing downwards (y-axis) and rightwards (x-axis). This is a convention that we need to keep in mind. You will see that it also affects our key point representations.
 
-Next, we will have a look at the key point data of that first frame. First, we extract the keypoints of the first frame from our time series of key points.
+Next, we will look at the key point data of that first frame. First, we extract the key points of the first frame from our time series of key points.
 
 
 
@@ -241,7 +241,7 @@ keypoints <- speech2_keypoints[speech2_keypoints$frame == frame_number,]
 keypoints
 ```
 
-The frame only shows upper body key points. Thus, so it makes sense to subset the data to those upper body key points and discard all lower body key points.
+The frame only shows upper body key points. Thus, it makes sense to subset the data to those upper body key points and discard all lower body key points.
 
 Remember the list from above? `kp1` to `kp13` are upper body key points while `kp14` to `kp17` are lower body key points.
 
@@ -252,7 +252,7 @@ keypoints <- keypoints[str_detect(names(keypoints), upper_body_pattern)]
 ```
 
 
-To make plotting a bit easier, we reorganize the remaining data. We want a matrix that stores the x-coordinates of all key points in the one column, and the y-coordinates in another column:
+To make plotting a bit easier, we will reorganize the remaining data. We want a matrix that stores the x-coordinates of all key points in one column, and the y-coordinates in another column:
 
 ```{r}
 kp_x <- t(keypoints[, str_detect(names(keypoints), "_x")])
@@ -265,7 +265,7 @@ kp_frame
 ```
 
 
-Now we are finally in a position where we can visualize the upper key points of our frame:
+Now, we are finally in a position where we can visualize the upper key points of our frame:
 
 ```{r}
 plot(x = kp_frame$x,
@@ -280,7 +280,7 @@ plot(x = kp_frame$x,
 grid()
 ```
 
-Okay, this does not look very helpful yet. Let's add lines between some of the key points to create an image that is closer to the one we've seen on the slides earlier.
+Okay, this does not look very helpful yet. Let's add lines between some key points to create an image closer to the one we've seen on the slides earlier.
 
 
 ```{r}
@@ -344,7 +344,7 @@ points(x = kp_frame$x,
        col = viridis(1))
 ```
 
-This looks better, but the figure is upside down. Why? Because, as we've seen earlier, the y-axis is reversed. We can fix this quite easily by adjusting `ylim`:
+This figure looks better, but the speaker is upside down. Why? Because, as we've seen earlier, the y-axis is reversed. We can fix this quite easily by adjusting `ylim`:
 
 ```{r}
 
@@ -435,9 +435,9 @@ points(x = kp_frame$x,
        col = viridis(1))
 ```
 
-Or, we can plot the key points on top of the frame. To do so, we need to rescale the key points. The key-points are scaled between zero and one, whereas our image are scaled according to their pixel size, i.e. 720x400.
+Or, we can plot the key points on top of the frame. To do so, we need to rescale the key points. The key points are scaled between zero and one, whereas our images are scaled according to their pixel size, i.e., 720x400.
 
-These two functions will rescale the x- and y-values of our key point representations so that they match the scale of the frame:
+The following two functions rescale the x- and y-values of our key point representations so that they match the scale of the frame:
 
 ```{r}
 scale_x <- function(x, x_size){x*x_size}
@@ -475,13 +475,13 @@ points(x = kp_frame$x_scaled,
        col = viridis(2)[2])
 ```
 
-I hope visualizing individual frames gave you a feeling for the data. We now proceed to calculating our two body language indicators from time series of key point representations. That is, we will calculate our indicator of gesticulation and our measure of posture for both speech sequences. 
+I hope visualizing individual frames gave you a feeling for the data. We now calculate our two body language indicators from a time series of key point representations. That is, we will calculate our gesticulation and posture measures for both speech sequences. 
 
 # 4. Calculating measure of gesticulation
 
-Let's recall how we would like to quantify the level of gesticulation shown by the speaker. We defined gesticulation as dynamic use of gestures, specifically through hand movement. We will make use of the fact that hand movement is captured by the distances of hand locations between frames. The more a speaker moves their hands, the higher the distance of hand locations between two consecutive frames. We construct our **measure of gesticulation** as the **average between-frame distance of the speaker's left and right hand**.
+Let's recall how we would like to quantify the level of gesticulation shown by the speaker. We defined gesticulation as the dynamic use of gestures, specifically through hand movement. We will use the fact that the distances of hand locations between frames capture hand movement. The more a speaker moves their hands, the higher the distance of hand locations between two consecutive frames. We construct our **measure of gesticulation** as the **average between-frame distance of the speaker's left and right hand**.
 
-To calculate between-frame distances of key points, we need a function to calculate euclidean distances:
+To calculate between-frame distances of key points, we need a function to calculate Euclidean distances:
 
 ```{r}
 euclidean_distance <- function(x1, y1, x2, y2){
@@ -491,7 +491,6 @@ euclidean_distance <- function(x1, y1, x2, y2){
 ```
 
 With this function at hand, we can code a function that calculates the distances of the left and right wrists between all frames of a video sequence:
-
 
 ```{r}
 calculate_wrist_movement <- function(kp_data){
@@ -514,21 +513,21 @@ calculate_wrist_movement <- function(kp_data){
 }
 ```
 
-Let's apply the function to both speeches
+Let's apply the function to both speeches:
 
 ```{r}
 speech1_keypoints <- calculate_wrist_movement(speech1_keypoints)
 speech2_keypoints <- calculate_wrist_movement(speech2_keypoints)
 ```
 
-The function added variables for left and right wrist movement
+The function added variables for left and right wrist movement:
 
 ```{r}
 head(speech1_keypoints[, c("left_wrist_movement", "right_wrist_movement")])
 head(speech2_keypoints[, c("left_wrist_movement", "right_wrist_movement")])
 ```
 
-We can visualize the times-series of the left and right wrist movement variables. 
+We can visualize the times series of the left and right wrist movement variables:
 
 ```{r, echo=FALSE}
 par(mfrow = c(1, 2))
@@ -618,7 +617,7 @@ text(x = speech2_keypoints$frame[speech2_pos_id_r],
 
 ```
 
-Our quantification of wrist movement confirms two observations: First, we see more overall hand (wrist) movement in speech 2 than in speech 1. Second, Klaus Ernst gesticulates more strongly with his right hand than with his left hand, resulting in more movement in his right wrist compared to his left wrist.
+Our quantification of wrist movement confirms two observations: First, we see more overall hand (wrist) movement in Speech 2 than in Speech 1. Second, Klaus Ernst gesticulates more strongly with his right hand than his left hand, resulting in more movement in his right wrist than his left wrist.
 
 To see whether those observations are correct, let's have a look at both video sequences again:
 
@@ -678,13 +677,13 @@ text(x = c(gesticulations_speech1,
      col = viridis(1))
 ```
 
-In line with what we would hope and expect, the gesticulation indicator suggests that Klaus Ernst (speech 2) showed higher levels of gesticulation than Gabriela Heinrich (speech 1).
+In line with what we would hope and expect, the gesticulation indicator suggests that Klaus Ernst (Speech 2) showed higher levels of gesticulation than Gabriela Heinrich (Speech 1).
 
 # Calculating measure of posture
 
-Next, we calculate the measure of posture. While the gesticulation measure quantifies hand movement irrespective of its form, posture quantifies the extent to which speakers adopt body size increasing postures. We quantify this by calculating the average height of the wrist, relative to the shoulder. Our measure of posture is the average height of the higher wrist across all frames in a speech sequence.
+Next, we calculate the measure of posture. While the gesticulation measure quantifies hand movement irrespective of its form, posture quantifies the extent to which speakers adopt body size-increasing postures. We quantify this by calculating the average height of the wrist relative to the shoulder. Our measure of posture is the average height of the higher wrist across all frames in a speech sequence.
 
-We start with a function that calculates the height of the left and right wrist, and determines which of both is higher in any frame of a sequence:
+We start with a function that calculates the height of the left and right wrist and determines which of both is higher in any frame of a sequence:
 
 ```{r}
 calculate_wrist_height <- function(kp_data){
@@ -715,7 +714,7 @@ speech1_keypoints <- calculate_wrist_height(speech1_keypoints)
 speech2_keypoints <- calculate_wrist_height(speech2_keypoints)
 ```
 
-Before averaging over all frames, let's take a look at the time series again.
+Before averaging over all frames, let's take a look at the time series again:
 
 ```{r, echo=FALSE}
 par(mfrow = c(1, 2))
@@ -805,7 +804,7 @@ text(x = speech2_keypoints$frame[speech2_pos_id_r],
 
 ```
 
-We observe three things: First, while Gabriela Heinrich raises her right wrist to some extent in the middle of the sequence, she never raises her wrists above her shoulders. Second, Klaus Ernst frequently raises both wrist above shoulder height in the first half of the sequence. Third, in the second half of the sequence, Klaus Ernst only raises his right wrist.
+We observe three things: First, while Gabriela Heinrich raises her right wrist to some extent in the middle of the sequence, she never raises her wrists above her shoulders. Second, Klaus Ernst frequently raises both wrists above shoulder height in the first half of the sequence. Third, in the second half of the sequence, Klaus Ernst only raises his right wrist.
 
 We can again confirm these observations by inspecting the videos:
 
@@ -815,7 +814,7 @@ We can again confirm these observations by inspecting the videos:
 </div>
 
 
-The summary measure of posture is given by the average height of the higher wrist across all frames of a sequence:
+The summary measure of posture averages the height of the higher wrist across all frames of a sequence:
 
 ```{r}
 posture_speech1 <- mean(speech1_keypoints$max_wrist_height)
@@ -856,7 +855,7 @@ text(x = c(posture_speech1,
 
 ```
 
-Both values are negative, indicating that, on average, both speakers held their wrist below their shoulders. Again, the results confirm our intuition, showing that Klaus Ernst made more use of body-size increasing postures than Gabriela Heinrich.
+Both values are negative, indicating that, on average, both speakers held their wrists below their shoulders. Again, the results confirm our intuition, showing that Klaus Ernst made more use of body-size-increasing postures than Gabriela Heinrich.
 
 
 # Wrapping up
